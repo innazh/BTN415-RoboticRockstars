@@ -15,10 +15,15 @@ PktDef::PktDef() {
 
 	CmdPkt.Data = nullptr;
 	CmdPkt.CRC = 0;
+
+	RawBuffer = nullptr;
 }
 
 //Parse data from buffer and populate header, data and CRC
 PktDef::PktDef(char* buffer) {
+
+	RawBuffer = nullptr;
+
 	//Get pktCount
 	memcpy(&CmdPkt.header.PktCount, &buffer[0], sizeof(CmdPkt.header.PktCount));
 
@@ -34,16 +39,15 @@ PktDef::PktDef(char* buffer) {
 	//Get Length
 	memcpy(&CmdPkt.header.Length, &buffer[5], sizeof(CmdPkt.header.Length));
 
-	//sizeof(*CmdPkt.Data)*CmdPkt.header.Length - do not remove.
-	int sizeOfBodyData = CmdPkt.header.Length * sizeof(*CmdPkt.Data);
+	int sizeOfBodyData = CmdPkt.header.Length - emptyPacket;
 
-	if (CmdPkt.header.Length > 0) {
+	if (sizeOfBodyData > 0) {
 		//Get data
-		CmdPkt.Data = new char[CmdPkt.header.Length]; //allocate space for data
-		memcpy(CmdPkt.Data, &buffer[6], sizeOfBodyData);
+		CmdPkt.Data = new char[sizeOfBodyData]; //allocate space for data
+		memcpy(CmdPkt.Data, &buffer[6], sizeOfBodyData * sizeof(*CmdPkt.Data));
 
 		//Get CRC
-		memcpy(&CmdPkt.CRC, &buffer[6 + sizeOfBodyData], sizeof(CmdPkt.CRC));
+		memcpy(&CmdPkt.CRC, &buffer[6 + sizeOfBodyData * sizeof(*CmdPkt.Data)], sizeof(CmdPkt.CRC));
 	}
 	else
 	{
@@ -108,9 +112,12 @@ void PktDef::SetBodyData(char* rawdata, int len) {
 		delete[] CmdPkt.Data;
 		CmdPkt.Data = nullptr;
 	}
+	//SetBodyData - needs to set the length in the packet header information as well.
+	CmdPkt.header.Length = emptyPacket + len;
 
 	CmdPkt.Data = new char[len];
-	CmdPkt.Data = rawdata;
+	//CmdPkt.Data = rawdata;
+	memcpy(CmdPkt.Data, rawdata, len);
 }
 
 //Set pktCount to count
@@ -119,6 +126,7 @@ void PktDef::SetPktCount(int count) {
 }
 
 //Return active command
+//GetCmd - should not return ACK as a valid command flag
 CmdType PktDef::GetCmd() {
 	CmdType cmd;
 
@@ -136,9 +144,6 @@ CmdType PktDef::GetCmd() {
 	}
 	else if (CmdPkt.header.Claw == 1) {
 		cmd = CLAW;
-	}
-	else if (CmdPkt.header.Ack == 1) {
-		cmd = ACK;
 	}
 
 	return cmd;
@@ -205,9 +210,12 @@ bool PktDef::CheckCRC(char* buffer, int size) {
 //Calculate CRC and set packet's CRC parameter
 void PktDef::CalcCRC() {
 	int numOnes = 0;
+	int sizeOfBodyData = CmdPkt.header.Length - emptyPacket;
 
-	//num of 1s in PktCount
-	for (int i = 0; i < 8; i++)
+	int loopIntFor = 8 * sizeof(CmdPkt.header.PktCount);
+	
+	//num of 1s in PktCount and Length
+	for (int i = 0; i < loopIntFor; i++)
 	{
 		numOnes += (CmdPkt.header.PktCount >> i) & 1;
 	}
@@ -220,16 +228,16 @@ void PktDef::CalcCRC() {
 	else if (CmdPkt.header.Claw & 1) { numOnes++; }
 	else if (CmdPkt.header.Sleep & 1) { numOnes++; }
 
+	//num of 1s in Length
+	for (int i = 0; i < 8; i++)
+	{
+		numOnes += (CmdPkt.header.Length >> i) & 1;
+	}
+
 	//num of 1s in body
-	if (CmdPkt.header.Length > 0) {
+	if (sizeOfBodyData > 0) {
 
-		for (int i = 0; i < 8; i++)
-		{
-			numOnes += (CmdPkt.header.Length >> i) & 1;
-		}
-
-
-		for (int out = 0; out < CmdPkt.header.Length; out++)
+		for (int out = 0; out < sizeOfBodyData; out++)
 		{
 			for (int i = 0; i < 8; i++)
 			{
@@ -243,27 +251,38 @@ void PktDef::CalcCRC() {
 
 //Allocate RawBuffer, transfer data from packet into RawBuffer
 //Return address of RawBuffer
-char *PktDef::GenPacket() {
-	//sizeof(*CmdPkt.Data)*CmdPkt.header.Length - do not remove.
-	int sizeOfBodyData = sizeof(*CmdPkt.Data)*CmdPkt.header.Length;
 
-	RawBuffer = new char[emptyPacket + sizeOfBodyData];
+/*GenPacket - needs to clean up RxBuffer before proceeding.  
+You have a potential memory leak if the object is reused.   
+Data should be allocated based on the header information as well.  
+Use length.*/
+
+char *PktDef::GenPacket() {
+
+	int sizeOfBodyData = CmdPkt.header.Length - emptyPacket;
+
+	if (RawBuffer != nullptr) {
+		delete[] RawBuffer;
+		RawBuffer = nullptr;
+	}
+
+	RawBuffer = new char[CmdPkt.header.Length];
 
 	//Copy PktCount from header
 	memcpy(&RawBuffer[0], &CmdPkt.header.PktCount, sizeof(CmdPkt.header.PktCount));
 
 	//Copy flags from header
-	char * flags = (char*)&CmdPkt.header.PktCount;
-	RawBuffer[4] = *flags;
+	char * flags = (char*)&CmdPkt.header.PktCount;//notsuure
+	RawBuffer[4] = *flags;//notsuure
 
 	//Copy Length from header
 	memcpy(&RawBuffer[5], &CmdPkt.header.Length, sizeof(CmdPkt.header.Length));
 
-	if (CmdPkt.header.Length > 0)
+	if (sizeOfBodyData > 0)
 	{
 		//Copy Data (body) and CRC
-		memcpy(&RawBuffer[6], CmdPkt.Data, sizeOfBodyData);
-		memcpy(&RawBuffer[6 + sizeOfBodyData], &CmdPkt.CRC, sizeof(CmdPkt.CRC));
+		memcpy(&RawBuffer[6], CmdPkt.Data, sizeOfBodyData * sizeof(*CmdPkt.Data));
+		memcpy(&RawBuffer[6 + sizeOfBodyData * sizeof(*CmdPkt.Data)], &CmdPkt.CRC, sizeof(CmdPkt.CRC));
 	}
 	else
 	{

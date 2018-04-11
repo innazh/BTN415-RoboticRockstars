@@ -5,7 +5,7 @@
 #include <string>
 #include <iostream>
 
-/* PACKET HEADER - 7 BYTES
+/* PACKET HEADER - 6 BYTES
 * PktCount = number of times packet has been sent
 * Drive/Sleep/Status/etc are commands.  1 = active command!
 * Padding rounds out the number of bits

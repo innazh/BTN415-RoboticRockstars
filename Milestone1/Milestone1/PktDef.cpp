@@ -28,11 +28,11 @@ PktDef::PktDef(char* buffer) {
 	memcpy(&CmdPkt.header.PktCount, &buffer[0], sizeof(CmdPkt.header.PktCount));
 
 	//Bitshifting to get commands
-	CmdPkt.header.Drive = buffer[4] & 1;
+	CmdPkt.header.Sleep = buffer[4] & 1;
 	CmdPkt.header.Status = (buffer[4] >> 1) & 1;
-	CmdPkt.header.Sleep = (buffer[4] >> 2) & 1;
-	CmdPkt.header.Arm = (buffer[4] >> 3) & 1;
-	CmdPkt.header.Claw = (buffer[4] >> 4) & 1;
+	CmdPkt.header.Drive = (buffer[4] >> 2) & 1;
+	CmdPkt.header.Claw = (buffer[4] >> 3) & 1;
+	CmdPkt.header.Arm = (buffer[4] >> 4) & 1;
 	CmdPkt.header.Ack = (buffer[4] >> 5) & 1;
 	CmdPkt.header.Padding = 0;
 
@@ -67,8 +67,9 @@ void PktDef::SetCmd(CmdType flag) {
 		CmdPkt.header.Claw = 0;
 		CmdPkt.header.Sleep = 0;
 		CmdPkt.header.Status = 0;
+		CmdPkt.header.Ack = 0;
 		break;
-
+			
 	case SLEEP:
 		CmdPkt.header.Sleep = 1;
 
@@ -76,6 +77,7 @@ void PktDef::SetCmd(CmdType flag) {
 		CmdPkt.header.Claw = 0;
 		CmdPkt.header.Drive = 0;
 		CmdPkt.header.Status = 0;
+		CmdPkt.header.Ack = 0;
 		break;
 
 	case ARM:
@@ -85,6 +87,7 @@ void PktDef::SetCmd(CmdType flag) {
 		CmdPkt.header.Claw = 0;
 		CmdPkt.header.Drive = 0;
 		CmdPkt.header.Status = 0;
+		CmdPkt.header.Ack = 0;
 		break;
 
 	case CLAW:
@@ -94,6 +97,7 @@ void PktDef::SetCmd(CmdType flag) {
 		CmdPkt.header.Sleep = 0;
 		CmdPkt.header.Drive = 0;
 		CmdPkt.header.Status = 0;
+		CmdPkt.header.Ack = 0;
 		break;
 
 	case ACK:
@@ -272,7 +276,7 @@ char *PktDef::GenPacket() {
 	memcpy(&RawBuffer[0], &CmdPkt.header.PktCount, sizeof(CmdPkt.header.PktCount));
 
 	//Copy flags from header
-	char * flags = (char*)&CmdPkt.header.PktCount;//notsuure
+	char * flags = (char*)&CmdPkt.header.PktCount + sizeof(CmdPkt.header.PktCount);//notsuure
 	RawBuffer[4] = *flags;//notsuure
 
 	//Copy Length from header

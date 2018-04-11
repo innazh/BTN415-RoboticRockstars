@@ -5,10 +5,11 @@
 #pragma comment(lib, "Ws2_32.lib")
 #include <iostream>
 #include <string>
+#include <fstream>
 
 enum SocketType { CLIENT, SERVER };
 enum ConnectionType { TCP, UDP };
-const int DEFAULT_SIZE=128; 
+const int DEFAULT_SIZE = 128;
 
 class MySocket
 {
@@ -20,7 +21,7 @@ private:
 	struct sockaddr_in RespAddr; // to store the response for UDP connection
 	std::string IPAddr;
 	int Port;
-	
+
 	ConnectionType connectionType;
 	SocketType mySocket; //to hold the socket type of the MySocket object
 
@@ -37,9 +38,9 @@ protected:
 	}
 
 public:
-	MySocket(SocketType , std::string, unsigned int, ConnectionType, unsigned int);
+	MySocket(SocketType, std::string, unsigned int, ConnectionType, unsigned int);
 	~MySocket();
-	
+
 	bool ConnectTCP(); //establish TCP/IP socket connection (3-way handshake)
 	bool DisconnectTCP(); //disconnect the TCP/IP socket connection (4-way handshake)
 	bool SetupUDP(); // configure UDP connection for communication

@@ -1,6 +1,5 @@
 #include "MySocket.h"
 
-
 MySocket::MySocket(SocketType st, std::string ip, unsigned int port, ConnectionType ct, unsigned int size) {
 	this->bConnect = false;
 
@@ -10,7 +9,7 @@ MySocket::MySocket(SocketType st, std::string ip, unsigned int port, ConnectionT
 	//set port and ip
 	this->Port = port;
 	this->IPAddr = ip;
-	
+
 	if (size > 0) {
 		this->Buffer = new char[size];
 		this->MaxSize = size;
@@ -20,61 +19,32 @@ MySocket::MySocket(SocketType st, std::string ip, unsigned int port, ConnectionT
 		this->Buffer = new char[DEFAULT_SIZE];
 		this->MaxSize = DEFAULT_SIZE;
 	}
-	//start Winsock DDLs
-	if (this->StartWSA()) {
-		//configure the socket
-		SvrAddr.sin_family = AF_INET; //Address family type internet
-		SvrAddr.sin_port = htons(this->Port); //port (host to network conversion)
-		SvrAddr.sin_addr.s_addr = inet_addr(this->IPAddr.c_str()); //IP address
-		if (st == CLIENT) {
-			if (ct == TCP) {
-				this->ConnectionSocket = InitializeTCPSocket();
-			}
-			else if (ct == UDP) {
-				this->ConnectionSocket = InitializeUDPSocket();
-			}
-		}
-		else if (st == SERVER) {
-			if (ct == TCP) {
-				this->WelcomeSocket = InitializeTCPSocket();
-			}
-			else if (ct == UDP) {
-				this->WelcomeSocket = InitializeUDPSocket();
-			}
-			this->BindSocket();
-			//configure listen socket
-			if (ct == TCP) {
-				this->ListenSocket();
-			}
-		}
-	}
+	StartWSA();
 }
 
 //Destructor for cleaning up dynamically allocated memory
-MySocket::~MySocket() 
+MySocket::~MySocket()
 {
 	delete Buffer;
 	Buffer = nullptr;
 	this->MaxSize = 0;//not sure if this is needed
 
 	this->bConnect = false;
-	
+
 	if (!(this->mySocket == SERVER && this->connectionType == UDP)) closesocket(this->ConnectionSocket);
-	
-	if(this->mySocket==SERVER) closesocket(this->WelcomeSocket);
-	
-	WSACleanup();
+
+	if (this->mySocket == SERVER) closesocket(this->WelcomeSocket);
 }
 
 //Initializes the Winsock DLLs.
 //Returns true if the Winsock is succesfully initialized else return false
-bool MySocket::StartWSA() 
+bool MySocket::StartWSA()
 {
 	bool ret = true;
 	WSADATA wsaData;
 
-	if ((WSAStartup(MAKEWORD(2,2), &wsaData)) != 0) {
-		Print("Could not start DDLs");
+	if ((WSAStartup(MAKEWORD(2, 2), &wsaData)) != 0) {
+		Print("Error: Could not start DDLs");
 		exit(0);
 		ret = false;
 	}
@@ -82,64 +52,59 @@ bool MySocket::StartWSA()
 }
 
 //Establish TCP/IP connection, return true if connection made
-bool MySocket::ConnectTCP() 
+bool MySocket::ConnectTCP()
 {
 	bool res = true;
 
-	if (this->connectionType == TCP) {
-		if (this->mySocket == SERVER) {
-			this->ConnectionSocket = SOCKET_ERROR;
-			if ((this->ConnectionSocket = accept(this->WelcomeSocket, NULL, NULL)) == SOCKET_ERROR)
-			{
-				Print("Could not accept connection");
-				closesocket(this->WelcomeSocket);
-				WSACleanup();
+	//Check that connection type is TCP -- if not, print an error
+	if (this->connectionType != TCP) {
+		Print("Error in ConnectTCP: Cannot connect with UDP sockets.");
+		res = false;
+	}
+	else {
+		//TCP Server
+		if (mySocket == SERVER) {
+			this->WelcomeSocket = InitializeTCPSocket();
+			this->BindSocket();
+			this->ListenSocket();
+
+			if ((this->ConnectionSocket = accept(this->WelcomeSocket, NULL, NULL)) == SOCKET_ERROR) {
 				res = false;
+				closesocket(this->ConnectionSocket);
+
+				Print("Error: Could not accept incoming connection.");
+				std::cin.get();
+				exit(0);
+			}
+			else {
+				bConnect = true;
 			}
 		}
-		else if (this->mySocket == CLIENT) {
-			if ((connect(this->ConnectionSocket, (struct sockaddr *)&SvrAddr, sizeof(SvrAddr))) == SOCKET_ERROR)
-			{
-				Print("Client: Could not connect");
-				closesocket(this->ConnectionSocket);
-				WSACleanup();
+		else {
+			this->ConnectionSocket = InitializeTCPSocket();
+
+			SvrAddr.sin_family = AF_INET; //Address family type internet
+			SvrAddr.sin_port = htons(Port); //port (host to network conversion)
+			SvrAddr.sin_addr.s_addr = inet_addr(this->IPAddr.c_str()); //IP address
+
+			if ((connect(this->ConnectionSocket, (struct sockaddr *)&SvrAddr, sizeof(SvrAddr))) == SOCKET_ERROR) {
 				res = false;
+				closesocket(this->ConnectionSocket);
+				Print("Error: Could not connect to the server");
+				std::cin.get();
+				exit(0);
+			}
+			else {
+				bConnect = true;
 			}
 		}
 	}
-	else res = false;
-
-
-
-	if (this->connectionType == TCP) {
-		if (this->mySocket == SERVER) {
-			this->ConnectionSocket = SOCKET_ERROR;
-			if ((this->ConnectionSocket = accept(this->WelcomeSocket, NULL, NULL)) == SOCKET_ERROR)
-			{
-				Print("Could not accept connection");
-				closesocket(this->WelcomeSocket);
-				WSACleanup();
-				res = false;
-			}
-		}
-		else if (this->mySocket == CLIENT) {
-			if ((connect(this->ConnectionSocket, (struct sockaddr *)&SvrAddr, sizeof(SvrAddr))) == SOCKET_ERROR)
-			{
-				Print("Client: Could not connect");
-				closesocket(this->ConnectionSocket);
-				WSACleanup();
-				res = false;
-			}
-		}
-	}
-	else res = false;
-
 
 	return res;
 }
 //Changes the default port number depending on the success criteria
 //Returns an error (false) if the connection is already established and true if the connection is not established
-bool MySocket::SetPortNum(int PortNum) 
+bool MySocket::SetPortNum(int PortNum)
 {
 	bool ret = false;
 
@@ -147,14 +112,14 @@ bool MySocket::SetPortNum(int PortNum)
 	{
 		this->Port = PortNum;
 		SvrAddr.sin_port = htons(Port); // conversion just to avoid the big/little endian issue
-		ret =  true;
+		ret = true;
 	}
 	else ret = false;
-	
+
 	return ret;
 }
 //Disconnect from a TCP/IP socket
-bool MySocket::DisconnectTCP() 
+bool MySocket::DisconnectTCP()
 {
 	bool r = false;
 
@@ -164,17 +129,14 @@ bool MySocket::DisconnectTCP()
 	{
 		if (this->mySocket == CLIENT) {
 			closesocket(this->ConnectionSocket);
-			WSACleanup();
 		}
 		else {
 			closesocket(this->WelcomeSocket);
-			WSACleanup();
 		}
 		r = true;
 	}
 	return r;
 }
-
 
 //Configure UDP sockets
 bool MySocket::SetupUDP() {
@@ -186,16 +148,16 @@ bool MySocket::SetupUDP() {
 
 		//Check if socket is a server
 		if (this->mySocket == SERVER) {
-			ConnectionSocket = InitializeUDPSocket();
+			WelcomeSocket = InitializeUDPSocket();
 			BindSocket();
 		}
 		else {
+			SvrAddr.sin_family = AF_INET; //Address family type internet
+			SvrAddr.sin_port = htons(Port); //port (host to network conversion)
+			SvrAddr.sin_addr.s_addr = inet_addr(this->IPAddr.c_str()); //IP address
+
 			ConnectionSocket = InitializeUDPSocket();
 		}
-
-	}
-	else {
-		Print("Error: Cannot configure a TCP Socket as a UDP Socket");
 	}
 
 	return ret;
@@ -204,111 +166,104 @@ bool MySocket::SetupUDP() {
 
 
 //Close UDP socket
-bool MySocket::TerminateUDP() 
+bool MySocket::TerminateUDP()
 {
 	bool r = false;
 
 	this->bConnect = false;
 
-	if (this->connectionType == UDP) 
+	if (this->connectionType == UDP)
 	{
 		if (this->mySocket == CLIENT) {
 			closesocket(this->ConnectionSocket);
-			WSACleanup();
+
 		}
 		else {
 			closesocket(this->WelcomeSocket);
 
-			WSACleanup();
+
 		}
 		r = true;
 	}
 	return r;
 }
 
-//Do I need to set my buffer to the data I'm sending?
-int MySocket::SendData(const char* raw, int size) 
+/* This is the broken function
+Transmitted gets set to -1 which is wrong
+And causes issues here and with GetData, since it's not receiving
+the right data*/
+int MySocket::SendData(const char* raw, int size)
 {
 	int transmitted = 0;
 
 	if (this->connectionType == TCP) {
-
 		transmitted = send(this->ConnectionSocket, raw, size, 0);
 	}
-	
+
+	//I believe this is wrong, check lab 6 for how to do UDP sendto
 	else if (this->connectionType == UDP) {
-		if (this->mySocket == CLIENT) {
-			transmitted = sendto(this->ConnectionSocket, raw, size, 0,
-				(struct sockaddr *)&SvrAddr, sizeof(SvrAddr));
-		}
-		else if (this->mySocket == SERVER) {
+		if (this->mySocket == SERVER) {
 			transmitted = sendto(this->WelcomeSocket, raw, size, 0, (struct sockaddr *)&SvrAddr, sizeof(SvrAddr));
 		}
-	}
+		else {
+			SvrAddr.sin_family = AF_INET;
+			SvrAddr.sin_port = htons(Port);
+			SvrAddr.sin_addr.s_addr = inet_addr(IPAddr.c_str());
 
-	if (this->connectionType == TCP) {
-		
-		transmitted = send(this->ConnectionSocket, raw, size, 0);
-	}
-	
-	else if (this->connectionType == UDP) {
-		if (this->mySocket == CLIENT) {
-			transmitted = sendto(this->ConnectionSocket, raw, size, 0,
-				(struct sockaddr *)&SvrAddr, sizeof(SvrAddr));
-		}
-		else if (this->mySocket == SERVER) {
-			transmitted = sendto(this->WelcomeSocket, raw, size, 0, (struct sockaddr *)&SvrAddr, sizeof(SvrAddr));
+			transmitted = sendto(this->ConnectionSocket, raw, size, 0, (struct sockaddr *)&SvrAddr, sizeof(SvrAddr));
 		}
 	}
-
 
 	return transmitted;
 }
 
-int MySocket::GetData(char* raw) 
+int MySocket::GetData(char* raw)
 {
 	int received = 0;
-	
+	char * rxBuffer = new char[MaxSize];
+
+	//If socket is TCP
 	if (this->connectionType == TCP) {
-		received = recv(this->ConnectionSocket, this->Buffer, this->MaxSize, 0);
+		received = recv(this->ConnectionSocket, rxBuffer, MaxSize, 0);
 	}
-	
-	else if (this->connectionType == UDP) {
-		if (this->mySocket == SERVER) {
-			int addr_len = sizeof(this->RespAddr);
-			received = recvfrom(this->WelcomeSocket, this->Buffer, this->MaxSize, 0,
-				(sockaddr *) &this->RespAddr, &addr_len);
+
+	//If socket is UDP
+	int addrLen = sizeof(SvrAddr);
+
+	if (this->connectionType == UDP) {
+		//UDP Server
+		if (mySocket == SERVER) {
+			received = recvfrom(this->ConnectionSocket, rxBuffer, sizeof(rxBuffer), 0, (struct sockaddr*)&SvrAddr, &addrLen);
 		}
-		else if (this->mySocket == CLIENT) {
-			int addr_len = sizeof(SvrAddr);
-			received = recvfrom(this->ConnectionSocket, this->Buffer, this->MaxSize, 0, (sockaddr *)&this->RespAddr,
-				&addr_len);
+		else {
+			received = recvfrom(this->WelcomeSocket, rxBuffer, sizeof(rxBuffer), 0, (struct sockaddr*)&SvrAddr, &addrLen);
 		}
 	}
-	
+
 	if (received != 0) {
-		for (int i = 0; i < received; i++) {
-			raw[i] = this->Buffer[i];
-		}
+		Buffer = new char[sizeof(rxBuffer)];
+		memcpy(Buffer, rxBuffer, sizeof(Buffer));
 	}
+
 	return received;
 }
 
 ////Returns the default IPAddress of the Mysocket object
-std::string MySocket::GetIPAddr() 
+std::string MySocket::GetIPAddr()
 {
 	return this->IPAddr;
 }
 
 //Changes the default IPAddr depending on the success criteria
 //Returns an error (false) if the connection is already established and true if the connection is not established
-bool MySocket::SetIPAddr(std::string IPAddress) 
+bool MySocket::SetIPAddr(std::string IPAddress)
 {
 	bool ret = false;
-	if (this->bConnect == false || (this->WelcomeSocket == INVALID_SOCKET||this->ConnectionSocket==INVALID_SOCKET))
+
+	if (this->bConnect == false || (this->WelcomeSocket == INVALID_SOCKET || this->ConnectionSocket == INVALID_SOCKET))
 	{
 		this->IPAddr = IPAddress;
-		SvrAddr.sin_addr.s_addr = inet_addr(this->IPAddr.c_str()); 
+		SvrAddr.sin_addr.s_addr = inet_addr(this->IPAddr.c_str());
 		ret = true;
 	}
 	else ret = false;
@@ -317,20 +272,20 @@ bool MySocket::SetIPAddr(std::string IPAddress)
 
 
 //Returns the default Port number of the MySocket object
-int MySocket::GetPort() 
+int MySocket::GetPort()
 {
 	return this->Port;
 }
 
 //Returns default SocketType of the MySocket object
-SocketType MySocket::GetType() 
+SocketType MySocket::GetType()
 {
 	return this->mySocket;
 }
 
 //Changes the default SocketType depending on the success criteria
 //Returns an error (false) if the connection is already established and true if the connection is not established
-bool MySocket::SetType(SocketType socketType) 
+bool MySocket::SetType(SocketType socketType)
 {
 	bool ret = false;
 	if (this->bConnect == false || (this->mySocket == SERVER && WelcomeSocket == INVALID_SOCKET))
@@ -340,7 +295,7 @@ bool MySocket::SetType(SocketType socketType)
 	}
 	else
 	{
-		Print("***ERROR!!! Connection is established already with this SocketType!***");
+		Print("Error: Connection is established already with this SocketType.");
 		ret = false;
 	}
 	return ret;
@@ -348,45 +303,27 @@ bool MySocket::SetType(SocketType socketType)
 
 void MySocket::BindSocket()
 {
-	if (this->mySocket == TCP) {
-		if ((bind(this->WelcomeSocket, (struct sockaddr *)&SvrAddr, sizeof(SvrAddr))) == SOCKET_ERROR) {
-			Print("Could not bind to the socket");
-			closesocket(this->WelcomeSocket);
-			WSACleanup();
-			std::cin.get();
-			exit(0);
-		}
-	}
+	//configure the socket
+	SvrAddr.sin_family = AF_INET; //Address family type internet
+	SvrAddr.sin_port = htons(Port); //port (host to network conversion)
+	SvrAddr.sin_addr.s_addr = INADDR_ANY;
 
-	else {
-		struct sockaddr_in SrvAddr;
-		SrvAddr.sin_family = AF_INET;
-		SrvAddr.sin_port = htons(Port);
-		SrvAddr.sin_addr.s_addr = INADDR_ANY;
+	if (bind(this->WelcomeSocket, (struct sockaddr *)&SvrAddr, sizeof(SvrAddr)) == SOCKET_ERROR) {
+		Print("Error: Could not bind to the socket.");
+		closesocket(this->WelcomeSocket);
 
-		if (bind(WelcomeSocket, (struct sockaddr *)&SrvAddr, sizeof(SrvAddr)) == SOCKET_ERROR) {
-			closesocket(WelcomeSocket);
-			WSACleanup();
-			exit(0);
-		}
-
-		if ((bind(this->WelcomeSocket, (struct sockaddr *)&SvrAddr, sizeof(SvrAddr))) == SOCKET_ERROR) {
-			Print("Could not bind to the socket");
-			closesocket(this->WelcomeSocket);
-			WSACleanup();
-			std::cin.get();
-			exit(0);
-
-		}
+		std::cin.get();
+		exit(0);
 	}
 }
+
 
 void MySocket::ListenSocket()
 {
 	if (listen(this->WelcomeSocket, 1) == SOCKET_ERROR) {
-		Print("Could not listen to the provided socket.");
 		closesocket(this->WelcomeSocket);
-		WSACleanup();
+
+		Print("Error: Could not listen to the provided socket.");
 		std::cin.get();
 		exit(0);
 	}
@@ -398,13 +335,15 @@ void MySocket::ListenSocket()
 SOCKET MySocket::InitializeTCPSocket()
 {
 	SOCKET newBorn = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
 	if (newBorn == INVALID_SOCKET) {
-		Print("Could not initialize socket");
-		WSACleanup();
+		bConnect = false;
+
+		Print("Error: Could not initialize socket");
 		std::cin.get();
 		exit(0);
 	}
-	else this->bConnect = true;
+
 	return newBorn;
 }
 
@@ -412,19 +351,12 @@ SOCKET MySocket::InitializeUDPSocket()
 {
 	SOCKET newBorn = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
-	
 	if (newBorn == INVALID_SOCKET) {
-		WSACleanup();
-		Print("Could not initialize socket");
-	}
-	if (newBorn == INVALID_SOCKET) {
-		WSACleanup();
-		Print("Could not initialize udp socket");
-
+		Print("Error: Could not initialize udp socket");
 		std::cin.get();
 		exit(0);
 	}
-	else this->bConnect = true;
+
 	return newBorn;
 }
 

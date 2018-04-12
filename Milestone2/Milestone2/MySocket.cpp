@@ -65,6 +65,7 @@ bool MySocket::ConnectTCP()
 		//TCP Server
 		if (mySocket == SERVER) {
 			this->WelcomeSocket = InitializeTCPSocket();
+			//check if socket is created
 			this->BindSocket();
 			this->ListenSocket();
 
@@ -188,10 +189,7 @@ bool MySocket::TerminateUDP()
 	return r;
 }
 
-/* This is the broken function
-Transmitted gets set to -1 which is wrong
-And causes issues here and with GetData, since it's not receiving
-the right data*/
+/* This is the broken function- udp doesnt work*/
 int MySocket::SendData(const char* raw, int size)
 {
 	int transmitted = 0;
@@ -206,10 +204,6 @@ int MySocket::SendData(const char* raw, int size)
 			transmitted = sendto(this->WelcomeSocket, raw, size, 0, (struct sockaddr *)&SvrAddr, sizeof(SvrAddr));
 		}
 		else {
-			SvrAddr.sin_family = AF_INET;
-			SvrAddr.sin_port = htons(Port);
-			SvrAddr.sin_addr.s_addr = inet_addr(IPAddr.c_str());
-
 			transmitted = sendto(this->ConnectionSocket, raw, size, 0, (struct sockaddr *)&SvrAddr, sizeof(SvrAddr));
 		}
 	}
@@ -220,11 +214,11 @@ int MySocket::SendData(const char* raw, int size)
 int MySocket::GetData(char* raw)
 {
 	int received = 0;
-	char * rxBuffer = new char[MaxSize];
+//	char * rxBuffer = new char[MaxSize];
 
 	//If socket is TCP
 	if (this->connectionType == TCP) {
-		received = recv(this->ConnectionSocket, rxBuffer, MaxSize, 0);
+		received = recv(this->ConnectionSocket, raw, MaxSize, 0);
 	}
 
 	//If socket is UDP
@@ -233,16 +227,16 @@ int MySocket::GetData(char* raw)
 	if (this->connectionType == UDP) {
 		//UDP Server
 		if (mySocket == SERVER) {
-			received = recvfrom(this->ConnectionSocket, rxBuffer, sizeof(rxBuffer), 0, (struct sockaddr*)&SvrAddr, &addrLen);
+			received = recvfrom(this->ConnectionSocket, raw, sizeof(raw), 0, (struct sockaddr*)&SvrAddr, &addrLen);
 		}
 		else {
-			received = recvfrom(this->WelcomeSocket, rxBuffer, sizeof(rxBuffer), 0, (struct sockaddr*)&SvrAddr, &addrLen);
+			received = recvfrom(this->WelcomeSocket, raw, sizeof(raw), 0, (struct sockaddr*)&SvrAddr, &addrLen);
 		}
 	}
 
 	if (received != 0) {
-		Buffer = new char[sizeof(rxBuffer)];
-		memcpy(Buffer, rxBuffer, sizeof(Buffer));
+		Buffer = new char[sizeof(raw)];
+		memcpy(Buffer, raw, sizeof(Buffer));
 	}
 
 	return received;
@@ -303,10 +297,12 @@ bool MySocket::SetType(SocketType socketType)
 
 void MySocket::BindSocket()
 {
-	//configure the socket
-	SvrAddr.sin_family = AF_INET; //Address family type internet
-	SvrAddr.sin_port = htons(Port); //port (host to network conversion)
-	SvrAddr.sin_addr.s_addr = INADDR_ANY;
+	if (this->connectionType == TCP) {
+		//configure the socket
+		SvrAddr.sin_family = AF_INET; //Address family type internet
+		SvrAddr.sin_port = htons(Port); //port (host to network conversion)
+		SvrAddr.sin_addr.s_addr = INADDR_ANY;
+	}
 
 	if (bind(this->WelcomeSocket, (struct sockaddr *)&SvrAddr, sizeof(SvrAddr)) == SOCKET_ERROR) {
 		Print("Error: Could not bind to the socket.");

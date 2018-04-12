@@ -29,6 +29,7 @@ private:
 	bool bConnect;  //flag to determine socket initialization
 	int MaxSize; //to store the maximum number of bytes the buffer is allocated to
 	bool StartWSA();
+	//add initialize socket and bind & listen here.
 
 protected:
 

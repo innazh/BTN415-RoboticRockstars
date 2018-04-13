@@ -29,8 +29,10 @@ private:
 	bool bConnect;  //flag to determine socket initialization
 	int MaxSize; //to store the maximum number of bytes the buffer is allocated to
 	bool StartWSA();
-	//add initialize socket and bind & listen here.
-
+	void BindSocket();
+	void ListenSocket();
+	SOCKET InitializeTCPSocket();
+	SOCKET InitializeUDPSocket();
 protected:
 
 	void Print(std::string msg)
@@ -54,10 +56,6 @@ public:
 	int GetPort();
 	SocketType GetType();
 	bool SetType(SocketType);
-
-	void BindSocket();
-	void ListenSocket();
-	SOCKET InitializeTCPSocket();
-	SOCKET InitializeUDPSocket();
+	/*When sending a msg or getting data -> figure out buffer (whether you need to reset it and etc)*/
 };
 #endif

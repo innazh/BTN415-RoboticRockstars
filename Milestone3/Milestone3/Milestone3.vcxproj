@@ -115,13 +115,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Milestone1\Milestone1\PktDef.h" />
-    <ClInclude Include="..\..\Milestone2\Milestone2\MySocket.h" />
+    <ClCompile Include="Main.cpp" />
+    <ClCompile Include="MySocket.cpp" />
+    <ClCompile Include="PktDef.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\Milestone1\Milestone1\PktDef.cpp" />
-    <ClCompile Include="..\..\Milestone2\Milestone2\MySocket.cpp" />
-    <ClCompile Include="Main.cpp" />
+    <ClInclude Include="MySocket.h" />
+    <ClInclude Include="PktDef.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

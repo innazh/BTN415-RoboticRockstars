@@ -120,7 +120,6 @@ void PktDef::SetBodyData(char* rawdata, int len) {
 	CmdPkt.header.Length = emptyPacket + len;
 
 	CmdPkt.Data = new char[len];
-	//CmdPkt.Data = rawdata;
 	memcpy(CmdPkt.Data, rawdata, len);
 }
 

@@ -196,7 +196,7 @@ bool PktDef::CheckCRC(char* buffer, int size) {
 		// Loop for each bit
 		for (int x = 0; x < 8; x++)
 			// Check the current bit
-			if( (*buffercrc >> x) & 1)
+			if( (*buffercrc >> x) & 1) //error!
 				numOnes++;
 
 		// Increase the size of the buffer by one byte.

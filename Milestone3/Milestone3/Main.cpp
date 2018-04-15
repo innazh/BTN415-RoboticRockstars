@@ -3,26 +3,26 @@
 #include <thread>
 
 bool ExeComplete;
+bool cmdSet = false;
+bool telSet = false;
+SocketType client = CLIENT;
+ConnectionType tcp = TCP;
 std::string ip;
+int portCmd;
+int portTel;
 
 //Logic for the command thread
 void cmd() {
 	int userInput = 0;
 	PktDef cmdPacket;
-	int port;
-	SocketType client = CLIENT;
-	ConnectionType tcp = TCP;
+	MySocket * command;
 
-	//Get port number
-	std::cout << "Enter the port number (Command Thread): ";
-	std::cin >> port;
-
-
-	//Create socket
-	MySocket command(client, ip, port, tcp, 128);
-	
-	//Connect to the server
-	command.ConnectTCP();
+	//Create, connect socket
+	if (cmdSet == false) {
+		command = new MySocket(client, ip, portCmd, tcp, 128);
+		command->ConnectTCP();
+		cmdSet = true;
+	}
 
 	while (true) {
 		//Get information from the user for the packet
@@ -30,7 +30,8 @@ void cmd() {
 		//1 = MotorBody
 		//2 = ActuatorBody
 		while (userInput < DRIVE || userInput > CLAW) {
-			std::cout << "Enter the number: \n1. DRIVE\n3. SLEEP\n4. ARM\n5. CLAW\n5. Packet with incorrect CRC\n.6 Packet with incorrect header length\n7. Packet with incorrect header command byte";
+			std::cout << "Enter the number: \n1. DRIVE\n3. SLEEP\n4. ARM\n5. CLAW\n5. Packet with incorrect CRC\n6. Packet with incorrect header length\n7. Packet with incorrect header command byte";
+			std::cout << "\nEnter: ";
 			std::cin >> userInput;
 
 			if (userInput < DRIVE || userInput > 7 || userInput == STATUS) {
@@ -40,8 +41,8 @@ void cmd() {
 
 		//DRIVE COMMAND
 		if (userInput == DRIVE) {
-			unsigned char direction = 0;
-			unsigned char duration = 0;
+			unsigned int direction = 0;
+			unsigned int duration = 0;
 
 			//Direction
 			while (direction < FORWARD || direction > LEFT) {
@@ -143,23 +144,19 @@ void cmd() {
 
 //Logic for the telemetry thread
 void tel() {
-	int port;
 	int recv;
-	bool goodCRC;
 	char rxBuffer[128];
-	SocketType client = CLIENT;
-	ConnectionType tcp = TCP;
-
-	//Get the port
-	std::cout << "Enter the port number (telemetry thread): ";
-	std::cin >> port;
+	MySocket *tel;
 
 	//Create socket
-	MySocket tel(client, ip, port, tcp, 128);
-	tel.ConnectTCP();
+	if (telSet == false) {
+		tel = new MySocket(client, ip, portTel, tcp, 128);
+		tel->ConnectTCP();
+		telSet = true;
+	}
 
 	while (true) {
-		recv = tel.GetData(rxBuffer); //receive data
+		recv = tel->GetData(rxBuffer); //receive data
 		
 		//Packet isn't corrupted
 		if (recv > 0 && recv < 13) {
@@ -167,7 +164,7 @@ void tel() {
 			packet.CalcCRC();
 
 			//If the CRC is OK
-			if (packet.CheckCRC((char *)rxBuffer[11], 12)) {
+			if (packet.CheckCRC((char *)rxBuffer, 12)) {
 				//If STATUS is true rxBuffer[5] & 1 >> 1
 				if (packet.GetCmd() == STATUS) {
 					char * bodyData = packet.GetBodyData();
@@ -212,10 +209,10 @@ void tel() {
 			}
 		}
 		//Packet is corrupted
+
 		else {
 			std::cout << "Error: Corrupt packet received" << std::endl;
 		}
-		
 	}
 }
 
@@ -228,7 +225,16 @@ int main(int argc, char* argv) {
 	std::cout << "Enter the IP Address: ";
 	std::cin >> ip;
 
-	//Spawn threads
-	std::thread (cmd).detach();
-	std::thread (tel).detach();
+	//Get the port - command
+	std::cout << "Enter the port number (command thread): ";
+	std::cin >> portCmd;
+
+	//Get the port - telemetry
+	std::cout << "Enter the port number (telemetry thread): ";
+	std::cin >> portTel;
+
+	while (ExeComplete) {
+		std::thread(cmd).detach();
+		std::thread(tel).detach();
+	}
 }

@@ -3,8 +3,6 @@
 #include <thread>
 
 bool ExeComplete;
-bool cmdSet = false;
-bool telSet = false;
 SocketType client = CLIENT;
 ConnectionType tcp = TCP;
 std::string ip;
@@ -18,11 +16,8 @@ void cmd() {
 	MySocket * command;
 
 	//Create, connect socket
-	if (cmdSet == false) {
-		command = new MySocket(client, ip, portCmd, tcp, 128);
-		command->ConnectTCP();
-		cmdSet = true;
-	}
+	command = new MySocket(client, ip, portCmd, tcp, 128);
+	command->ConnectTCP();
 
 	while (true) {
 		//Get information from the user for the packet
@@ -146,17 +141,12 @@ void cmd() {
 void tel() {
 	int recv;
 	char rxBuffer[128];
-	MySocket *tel;
 
-	//Create socket
-	if (telSet == false) {
-		tel = new MySocket(client, ip, portTel, tcp, 128);
-		tel->ConnectTCP();
-		telSet = true;
-	}
+	MySocket tel (client, ip, portTel, tcp, 128);
+	tel.ConnectTCP();
 
 	while (true) {
-		recv = tel->GetData(rxBuffer); //receive data
+		recv = tel.GetData(rxBuffer); //receive data
 		
 		//Packet isn't corrupted
 		if (recv > 0 && recv < 13) {
@@ -218,6 +208,8 @@ void tel() {
 
 //Main function
 int main(int argc, char* argv) {
+	bool pleaseWork = false;
+
 	//Set ExeComplete to false
 	ExeComplete = false;
 
@@ -233,8 +225,12 @@ int main(int argc, char* argv) {
 	std::cout << "Enter the port number (telemetry thread): ";
 	std::cin >> portTel;
 
-	while (ExeComplete) {
-		std::thread(cmd).detach();
-		std::thread(tel).detach();
+	while (!ExeComplete) {
+		if (pleaseWork == false) {
+			std::thread(cmd).detach();
+			std::thread(tel).detach();
+
+			pleaseWork = true;
+		}
 	}
 }

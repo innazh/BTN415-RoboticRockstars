@@ -3,25 +3,23 @@
 #include <thread>
 
 bool ExeComplete;
+std::string ip;
 
 //Logic for the command thread
 void cmd() {
 	int userInput = 0;
 	PktDef cmdPacket;
-	std::string ip;
 	int port;
 	SocketType client = CLIENT;
 	ConnectionType tcp = TCP;
 
-	//Get the ip and port
-	std::cout << "Enter the IP Address: ";
-	std::cin >> ip;
-	std::cout << "Enter the port number: ";
+	//Get port number
+	std::cout << "Enter the port number (Command Thread): ";
 	std::cin >> port;
 
 
 	//Create socket
-	MySocket command(client, ip, port, tcp, 0);
+	MySocket command(client, ip, port, tcp, 128);
 	
 	//Connect to the server
 	command.ConnectTCP();
@@ -32,10 +30,10 @@ void cmd() {
 		//1 = MotorBody
 		//2 = ActuatorBody
 		while (userInput < DRIVE || userInput > CLAW) {
-			std::cout << "Enter the number: \n1. DRIVE\n3. SLEEP\n4. ARM\n5. CLAW";
+			std::cout << "Enter the number: \n1. DRIVE\n3. SLEEP\n4. ARM\n5. CLAW\n5. Packet with incorrect CRC\n.6 Packet with incorrect header length\n7. Packet with incorrect header command byte";
 			std::cin >> userInput;
 
-			if (userInput < DRIVE || userInput > CLAW) {
+			if (userInput < DRIVE || userInput > 7 || userInput == STATUS) {
 				std::cout << "Error: Invalid input.\n";
 			}
 		}
@@ -71,7 +69,7 @@ void cmd() {
 			cmdPacket.CalcCRC();
 		}
 
-		//SLEEP command
+		//SLEEP command -- see after the while loop for the rest of this
 		else if (userInput == SLEEP) {
 			break;
 		}
@@ -123,6 +121,20 @@ void cmd() {
 			cmdPacket.SetPktCount(1);
 			cmdPacket.CalcCRC();
 		}
+		//Packet with incorrect CRC
+		else if (userInput == 5) {
+
+		}
+
+		//Packet with incorrect header length
+		else if (userInput == 6) {
+
+		}
+
+		//Packet with multiple command bytes set to 1
+		else if (userInput == 7) {
+
+		}
 	}
 
 	//Sending SLEEP command
@@ -131,24 +143,90 @@ void cmd() {
 
 //Logic for the telemetry thread
 void tel() {
-	std::string ip;
 	int port;
+	int recv;
+	bool goodCRC;
+	char rxBuffer[128];
 	SocketType client = CLIENT;
 	ConnectionType tcp = TCP;
 
-	//Get the ip and port
-	std::cout << "Enter the IP Address: ";
-	std::cin >> ip;
-	std::cout << "Enter the port number: ";
+	//Get the port
+	std::cout << "Enter the port number (telemetry thread): ";
 	std::cin >> port;
 
 	//Create socket
-	MySocket tel(client, ip, port, tcp, 0);
+	MySocket tel(client, ip, port, tcp, 128);
+	tel.ConnectTCP();
+
+	while (true) {
+		recv = tel.GetData(rxBuffer); //receive data
+		
+		//Packet isn't corrupted
+		if (recv > 0 && recv < 13) {
+			PktDef packet(rxBuffer); //create packet from data received
+			packet.CalcCRC();
+
+			//If the CRC is OK
+			if (packet.CheckCRC((char *)rxBuffer[11], 12)) {
+				//If STATUS is true rxBuffer[5] & 1 >> 1
+				if (packet.GetCmd() == STATUS) {
+					char * bodyData = packet.GetBodyData();
+					std::cout << "Data: " << bodyData << std::endl; //display raw data
+					
+					//Display sonar data
+					std::cout << "Sonar: " << bodyData[0] << " " << bodyData[2] << std::endl;
+
+					//Display arm reading
+					std::cout << "Arm: " << bodyData[2] << " " << bodyData[3] << std::endl;
+
+					//Display DRIVE data
+					if (bodyData[4] & 1 == 0) {
+						std::cout << "Robot is STOPPED" << std::endl;
+					}
+					else {
+						std::cout << "Robot is DRIVING" << std::endl;
+					}
+
+					//Display ARM data
+					if (bodyData[4] & 1 >> 1 == UP) {
+						std::cout << "Arm is UP, ";
+					}
+					else {
+						std::cout << "Arm is DOWN, ";
+					}
+
+					//Display CLAW data
+					if (bodyData[4] & 1 >> 2 == OPEN) {
+						std::cout << "Claw is OPEN" << std::endl;
+					}
+					else {
+						std::cout << "Claw is CLOSED" << std::endl;
+					}
+				}
+				else {
+					std::cout << "Error: STATUS not set to true" << std::endl;
+				}
+			}
+			else {
+				std::cout << "Error: CRC check failed" << std::endl;
+			}
+		}
+		//Packet is corrupted
+		else {
+			std::cout << "Error: Corrupt packet received" << std::endl;
+		}
+		
+	}
 }
 
+//Main function
 int main(int argc, char* argv) {
 	//Set ExeComplete to false
 	ExeComplete = false;
+
+	//Get the ip
+	std::cout << "Enter the IP Address: ";
+	std::cin >> ip;
 
 	//Spawn threads
 	std::thread (cmd).detach();

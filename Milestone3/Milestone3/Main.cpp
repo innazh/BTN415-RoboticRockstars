@@ -1,6 +1,7 @@
 #include "PktDef.h"
 #include "MySocket.h"
 #include <thread>
+#include <conio.h>
 
 bool ExeComplete;
 SocketType client = CLIENT;
@@ -14,110 +15,154 @@ void cmd() {
 	int userInput = 0;
 	PktDef cmdPacket;
 	MySocket * command;
+	int key;
 
 	//Create, connect socket
 	command = new MySocket(client, ip, portCmd, tcp, 128);
 	command->ConnectTCP();
 
+	//Get input and generate and send packets
 	while (true) {
-		//Get information from the user for the packet
-		//This gets the packet type
-		//1 = MotorBody
-		//2 = ActuatorBody
-		while (userInput < DRIVE || userInput > CLAW) {
-			std::cout << "Enter the number: \n1. DRIVE\n3. SLEEP\n4. ARM\n5. CLAW\n5. Packet with incorrect CRC\n6. Packet with incorrect header length\n7. Packet with incorrect header command byte";
-			std::cout << "\nEnter: ";
-			std::cin >> userInput;
+		//Detect keyboard being pressed
+		if (_kbhit()) {
+			//Get the key being pressed, it's an int don't be fooled
+			key = _getch();
 
-			if (userInput < DRIVE || userInput > 7 || userInput == STATUS) {
-				std::cout << "Error: Invalid input.\n";
-			}
-		}
+			//DRIVE
+			//119 = w, 115 = s, 97 = a, 100 = d
+			if (key == 119 || key == 115 || key == 97 || key == 100) {
+				char direction;
 
-		//DRIVE COMMAND
-		if (userInput == DRIVE) {
-			unsigned int direction = 0;
-			unsigned int duration = 0;
+				//Get the duration
+				//Use the numbers on your keyboard, we can get 1 - 9 seconds
+				int duration = _getch();
 
-			//Direction
-			while (direction < FORWARD || direction > LEFT) {
-				std::cout << "Enter the number:\n1. Forward\n2. Backward\n3. Right\n4.Left";
-				std::cin >> direction;
-
-				if (direction < FORWARD || direction > LEFT) {
-					std::cout << "Error: Invalid input." << std::endl;
+				//49 = 1, 57 = 9
+				while (duration < 49 || duration > 57) {
+					std::cout << "Error: Duration must be 1 - 9" << std::endl;
+					int duration = _getch();
 				}
-			}
-
-			//Duration
-			std::cout << "Enter the duration in seconds: ";
-			std::cin >> duration;
-
-			//Make the MotorBody
-			MotorBody body;
-			body.Direction = direction;
-			body.Duration = duration;
-
-			//Populate packet
-			cmdPacket.SetCmd(DRIVE);
-			cmdPacket.SetBodyData((char *)&body, 2);
-			cmdPacket.SetPktCount(1);
-			cmdPacket.CalcCRC();
-		}
-
-		//SLEEP command -- see after the while loop for the rest of this
-		else if (userInput == SLEEP) {
-			break;
-		}
-
-		//ARM command
-		else if (userInput == ARM) {
-			unsigned char action = 0;
-
-			while (action < UP || action > DOWN) {
-				std::cout << "Enter:5. Up\n6. Down";
-				std::cin >> action;
-
-				if (action < UP || action > DOWN) {
-					std::cout << "Error: Invalid input.";
+				
+				//Set the direction based on the key pressed
+				switch (key) {
+				case 119:
+					direction = FORWARD;
+					break;
+				case 115:
+					direction = BACKWARD;
+					break;
+				case 97:
+					direction = LEFT;
+					break;
+				case 100:
+					direction = RIGHT;
+					break;
 				}
+
+				//Make the MotorBody
+				MotorBody body;
+				body.Direction = direction;
+				body.Duration = (char)duration;
+
+				//Populate packet
+				cmdPacket.SetCmd(DRIVE);
+				cmdPacket.SetBodyData((char *)&body, 2);
+				cmdPacket.SetPktCount(1);
+				cmdPacket.CalcCRC();
+
+				//Generate the data and send it
+				char * buffer = cmdPacket.GenPacket();
+				command->SendData(buffer, sizeof(buffer));
 			}
 
-			//Make ActuatorBody
-			ActuatorBody body;
-			body.Action = action;
+			//ARM
+			//72 = up arrow, 80 = down arrow
+			if (key == 72 || key == 80) {
+				char action;
 
-			//Populate packet
-			cmdPacket.SetCmd(ARM);
-			cmdPacket.SetBodyData((char *)&body, 1);
-			cmdPacket.SetPktCount(1);
-			cmdPacket.CalcCRC();
-		}
-
-		//CLAW command
-		else if (userInput == CLAW) {
-			unsigned char action = 0;
-
-			while (action < OPEN || action > CLOSE) {
-				std::cout << "Enter:7. Open\n8. Close";
-				std::cin >> action;
-
-				if (action < OPEN || action > CLOSE) {
-					std::cout << "Error: Invalid input.";
+				//Set direction based on arrow pressed
+				switch (key) {
+				case 72:
+					action = UP;
+					break;
+				case 80:
+					action = DOWN;
+					break;
 				}
+
+				//Make ActuatorBody
+				ActuatorBody body;
+				body.Action = action;
+
+				//Populate packet
+				cmdPacket.SetCmd(ARM);
+				cmdPacket.SetBodyData((char *)&body, 1);
+				cmdPacket.SetPktCount(1);
+				cmdPacket.CalcCRC();
+
+				//Generate the data and send it
+				char * buffer = cmdPacket.GenPacket();
+				command->SendData(buffer, sizeof(buffer));
 			}
 
-			//Make ActuatorBody
-			ActuatorBody body;
-			body.Action = action;
+			//CLAW
+			//75 = key left (open), 77 = key right (close)
+			if (key == 75 || key == 77) {
+				char action;
 
-			//Populate packet
-			cmdPacket.SetCmd(ARM);
-			cmdPacket.SetBodyData((char *)&body, 1);
-			cmdPacket.SetPktCount(1);
-			cmdPacket.CalcCRC();
+				//Set direction based on arrow pressed
+				switch (key) {
+				case 75:
+					action = OPEN;
+					break;
+				case 77:
+					action = CLOSE;
+					break;
+				}
+
+				//Make ActuatorBody
+				ActuatorBody body;
+				body.Action = action;
+
+				//Populate packet
+				cmdPacket.SetCmd(ARM);
+				cmdPacket.SetBodyData((char *)&body, 1);
+				cmdPacket.SetPktCount(1);
+				cmdPacket.CalcCRC();
+
+				//Generate the data and send it
+				char * buffer = cmdPacket.GenPacket();
+				command->SendData(buffer, sizeof(buffer));
+			}
+			
+			//SLEEP
+			//107 - k
+			if (key == 107) {
+				break;
+			}
+
+			//Incorrect CRC
+			// - v
+			if (key == 118) {
+				
+			}
+
+			//Incorrect header length
+			// - b
+			if (key == 98) {
+
+			}
+
+			//Incorrect header command
+			// - n
+			if (key == 110) {
+
+			}
 		}
-		//Packet with incorrect CRC
+		
+
+		
+		/*Packet with incorrect CRC
 		else if (userInput == 5) {
 
 		}
@@ -133,8 +178,8 @@ void cmd() {
 		}
 	}
 
-	//Sending SLEEP command
-	
+	//Sending SLEEP command*/
+	}
 }
 
 //Logic for the telemetry thread

@@ -23,6 +23,7 @@ void cmd() {
 
 	//Get input and generate and send packets
 	while (true) {
+		key = 0;
 		//Detect keyboard being pressed
 		if (_kbhit()) {
 			//Get the key being pressed, it's an int don't be fooled
@@ -31,14 +32,15 @@ void cmd() {
 			//DRIVE
 			//119 = w, 115 = s, 97 = a, 100 = d
 			if (key == 119 || key == 115 || key == 97 || key == 100) {
-				char direction;
+				unsigned char direction;
+				unsigned char duration;
 
 				//Get the duration
 				//Use the numbers on your keyboard, we can get 1 - 9 seconds
-				int duration = _getch();
+				int durationGet = _getch();
 
 				//49 = 1, 57 = 9
-				while (duration < 49 || duration > 57) {
+				while (durationGet < 49 || durationGet > 57) {
 					std::cout << "Error: Duration must be 1 - 9" << std::endl;
 					int duration = _getch();
 				}
@@ -56,6 +58,37 @@ void cmd() {
 					break;
 				case 100:
 					direction = RIGHT;
+					break;
+				}
+
+				//Set the duration based on the key pressed
+				switch (durationGet) {
+				case 49:
+					duration = 1;
+					break;
+				case 50:
+					duration = 2;
+					break;
+				case 51:
+					duration = 3;
+					break;
+				case 52:
+					duration = 4;
+					break;
+				case 53:
+					duration = 5;
+					break;
+				case 54:
+					duration = 6;
+					break;
+				case 55:
+					duration = 7;
+					break;
+				case 56:
+					duration = 8;
+					break;
+				case 57:
+					duration = 9;
 					break;
 				}
 
@@ -138,6 +171,22 @@ void cmd() {
 			//SLEEP
 			//107 - k
 			if (key == 107) {
+				// Set the command to sleep
+				cmdPacket.SetCmd(CmdType::SLEEP);
+
+				MotorBody body;
+
+				body.Direction = 0;
+				body.Duration = 0;
+				cmdPacket.SetBodyData((char *)&body, 2);
+
+				// Calculate the CRC
+				cmdPacket.CalcCRC();
+
+				//Generate the data and send it
+				char * buffer = cmdPacket.GenPacket();
+				command->SendData(buffer, sizeof(buffer));
+
 				break;
 			}
 
@@ -159,26 +208,6 @@ void cmd() {
 
 			}
 		}
-		
-
-		
-		/*Packet with incorrect CRC
-		else if (userInput == 5) {
-
-		}
-
-		//Packet with incorrect header length
-		else if (userInput == 6) {
-
-		}
-
-		//Packet with multiple command bytes set to 1
-		else if (userInput == 7) {
-
-		}
-	}
-
-	//Sending SLEEP command*/
 	}
 }
 
@@ -203,37 +232,13 @@ void tel() {
 				//If STATUS is true rxBuffer[5] & 1 >> 1
 				if (packet.GetCmd() == STATUS) {
 					char * bodyData = packet.GetBodyData();
-					std::cout << "Data: " << bodyData << std::endl; //display raw data
-					
+
+					std::cout << "Data: " << (std::string)bodyData << std::endl; //display raw data
 					//Display sonar data
-					std::cout << "Sonar: " << bodyData[0] << " " << bodyData[2] << std::endl;
+					std::cout << "Sonar: " << std::to_string(bodyData[0]) << " " << std::to_string(bodyData[1]) << std::endl;
 
 					//Display arm reading
-					std::cout << "Arm: " << bodyData[2] << " " << bodyData[3] << std::endl;
-
-					//Display DRIVE data
-					if (bodyData[4] & 1 == 0) {
-						std::cout << "Robot is STOPPED" << std::endl;
-					}
-					else {
-						std::cout << "Robot is DRIVING" << std::endl;
-					}
-
-					//Display ARM data
-					if (bodyData[4] & 1 >> 1 == UP) {
-						std::cout << "Arm is UP, ";
-					}
-					else {
-						std::cout << "Arm is DOWN, ";
-					}
-
-					//Display CLAW data
-					if (bodyData[4] & 1 >> 2 == OPEN) {
-						std::cout << "Claw is OPEN" << std::endl;
-					}
-					else {
-						std::cout << "Claw is CLOSED" << std::endl;
-					}
+					std::cout << "Arm Position: " << std::to_string(bodyData[2]) << " " << std::to_string(bodyData[3]) << std::endl;
 				}
 				else {
 					std::cout << "Error: STATUS not set to true" << std::endl;

@@ -280,7 +280,7 @@ void tel() {
 			//If the CRC is OK
 			if (packet.CheckCRC((char *)rxBuffer, 12)) {
 				//If STATUS is true
-				if (packet.GetCmd() == STATUS) {
+					if (packet.GetCmd() == STATUS) {
 						char * rawData = packet.GenPacket();
 						char * bodyData = packet.GetBodyData();
 
@@ -297,7 +297,7 @@ void tel() {
 
 						//Display arm reading
 						std::cout << "Arm Position: " << (short int)bodyData[2] << std::endl << std::endl;
-						}
+
 				}
 				else {
 					std::cout << "Error: STATUS not set to true" << std::endl;

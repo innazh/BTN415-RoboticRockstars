@@ -13,8 +13,12 @@ int portTel;
 //Logic for the command thread
 void cmd() {
 	int userInput = 0;
-	PktDef cmdPacket;
+	int recv;
 	int key;
+	PktDef cmdPacket;
+	PktDef * recPacket;
+	char rxBuffer[128];
+	bool sent = false;
 
 	//Create, connect socket
 	MySocket command(client, ip, portCmd, tcp, 128);
@@ -24,7 +28,7 @@ void cmd() {
 	while (true) {
 		key = 0;
 		//Detect keyboard being pressed
-		if (_kbhit()) {
+		if (_kbhit() && sent == false) {
 			//Get the key being pressed, it's an int don't be fooled
 			key = _getch();
 
@@ -43,7 +47,7 @@ void cmd() {
 					std::cout << "Error: Duration must be 1 - 9" << std::endl;
 					int duration = _getch();
 				}
-				
+
 				//Set the direction based on the key pressed
 				switch (key) {
 				case 119:
@@ -103,10 +107,11 @@ void cmd() {
 				cmdPacket.SetBodyData((char *)&body, 2);
 				cmdPacket.SetPktCount(1);
 				cmdPacket.CalcCRC();
-		
+
 				//Generate the data and send it
 				char * buffer = cmdPacket.GenPacket();
-				command.SendData(buffer, 9);
+				command.SendData(buffer, sizeof(buffer) + 1);
+				sent = true;
 			}
 
 			//ARM
@@ -138,6 +143,7 @@ void cmd() {
 				//Generate the data and send it
 				char * buffer = cmdPacket.GenPacket();
 				command.SendData(buffer, sizeof(buffer));
+				sent = true;
 			}
 
 			//CLAW
@@ -169,8 +175,9 @@ void cmd() {
 				//Generate the data and send it
 				char * buffer = cmdPacket.GenPacket();
 				command.SendData(buffer, sizeof(buffer));
+				sent = true;
 			}
-			
+
 			//SLEEP
 			//107 - k
 			if (key == 107) {
@@ -184,34 +191,74 @@ void cmd() {
 				//Generate the data and send it
 				char * buffer = cmdPacket.GenPacket();
 				command.SendData(buffer, sizeof(buffer));
-
-				break;
+				sent = true;
 			}
 
 			//Incorrect CRC
-			// - v
+			// 118 - v
 			if (key == 118) {
-				
+				//Make ActuatorBody
+				ActuatorBody aBody;
+				aBody.Action = UP;
+
+				//Populate packet
+				cmdPacket.SetCmd(CLAW);
+				cmdPacket.SetBodyData((char *)&aBody, 1);
+				cmdPacket.SetPktCount(1);
+				cmdPacket.CalcCRC();
+
+				//Make a MotorBody to replace the ActuatorBody
+				//Don't CalcRC, leave it as-is
+				MotorBody mBody;
+				mBody.Direction = FORWARD;
+				mBody.Duration = 1;
+
+				cmdPacket.SetCmd(DRIVE);
+				cmdPacket.SetBodyData((char *)&mBody, 2);
+				cmdPacket.SetPktCount(1);
+
+				//Generate the data and send it
+				char * buffer = cmdPacket.GenPacket();
+				command.SendData(buffer, sizeof(buffer));
+				sent = true;
 			}
 
 			//Incorrect header length
-			// - b
+			// 98 - b
 			if (key == 98) {
 
 			}
 
 			//Incorrect header command
-			// - n
+			//110 - n
 			if (key == 110) {
 
 			}
 		}
-	}
-	/*char rxbuffer[128];
-	int buffer = command->GetData();*/
+		
+		//Receive ACK or NACK packets
+		if (sent == true) {
+			recv = command.GetData(rxBuffer);
+			recPacket = new PktDef(rxBuffer);
 
-	command.DisconnectTCP();
-	ExeComplete = true;
+			std::cout << "N/ACK packet received from server" << std::endl;
+
+			//SLEEP command was previously sent
+			if (key == 107) {
+				command.DisconnectTCP();
+				ExeComplete = true;
+				break;
+			}
+
+			//NACK
+			if (!recPacket->GetCmd()) {
+				char * bodyData = recPacket->GetBodyData();
+				std::cout << "Error: " << (std::string)bodyData << std::endl;
+			}
+
+			sent = false;
+		}
+	}
 }
 
 //Logic for the telemetry thread
@@ -219,12 +266,12 @@ void tel() {
 	int recv;
 	char rxBuffer[128];
 
-	MySocket tel (client, ip, portTel, tcp, 128);
+	MySocket tel(client, ip, portTel, tcp, 128);
 	tel.ConnectTCP();
 
 	while (true) {
 		recv = tel.GetData(rxBuffer); //receive data
-		
+
 		//Packet isn't corrupted
 		if (recv > 0 && recv < 13) {
 			PktDef packet(rxBuffer); //create packet from data received
@@ -234,14 +281,24 @@ void tel() {
 			if (packet.CheckCRC((char *)rxBuffer, 12)) {
 				//If STATUS is true
 				if (packet.GetCmd() == STATUS) {
-					char * bodyData = packet.GetBodyData();
+					if (packet.GetCmd() == STATUS) {
+						char * rawData = packet.GenPacket();
+						char * bodyData = packet.GetBodyData();
 
-					std::cout << "Data: " << (std::string)bodyData << std::endl; //display raw data
-					//Display sonar data
-					std::cout << "Sonar: " << std::to_string(bodyData[0]) << " " << std::to_string(bodyData[1]) << std::endl;
+						//display raw data
+						std::cout << "Data: ";
+						for (int i = 0; i < packet.GetLength(); i++)
+						{
+							std::cout << std::hex << (unsigned int)*(rawData++) << ", ";
+						}
+						std::cout << std::endl;
 
-					//Display arm reading
-					std::cout << "Arm Position: " << std::to_string(bodyData[2]) << " " << std::to_string(bodyData[3]) << std::endl;
+						//Display sonar data
+						std::cout << "Sonar: " << std::dec << (short int)bodyData[0] << std::endl;
+
+						//Display arm reading
+						std::cout << "Arm Position: " << (short int)bodyData[2] << std::endl << std::endl;
+					}
 				}
 				else {
 					std::cout << "Error: STATUS not set to true" << std::endl;

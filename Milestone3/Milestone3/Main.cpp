@@ -44,6 +44,7 @@ void cmd() {
 
 				//49 = 1, 57 = 9
 				while (durationGet < 49 || durationGet > 57) {
+					fflush(stdin);
 					std::cout << "Error: Duration must be 1 - 9" << std::endl;
 					int duration = _getch();
 				}

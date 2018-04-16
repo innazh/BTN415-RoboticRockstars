@@ -14,12 +14,11 @@ int portTel;
 void cmd() {
 	int userInput = 0;
 	PktDef cmdPacket;
-	MySocket * command;
 	int key;
 
 	//Create, connect socket
-	command = new MySocket(client, ip, portCmd, tcp, 128);
-	command->ConnectTCP();
+	MySocket command(client, ip, portCmd, tcp, 128);
+	command.ConnectTCP();
 
 	//Get input and generate and send packets
 	while (true) {
@@ -32,8 +31,8 @@ void cmd() {
 			//DRIVE
 			//119 = w, 115 = s, 97 = a, 100 = d
 			if (key == 119 || key == 115 || key == 97 || key == 100) {
-				unsigned char direction;
-				unsigned char duration;
+				int direction;
+				int duration;
 
 				//Get the duration
 				//Use the numbers on your keyboard, we can get 1 - 9 seconds
@@ -92,26 +91,29 @@ void cmd() {
 					break;
 				}
 
+				std::cout << "Key is DRIVE - DIRECTION: " << direction << std::endl;
+				std::cout << "Key is DRIVE - DURATION: " << duration << std::endl;
+
 				//Make the MotorBody
 				MotorBody body;
 				body.Direction = direction;
-				body.Duration = (char)duration;
+				body.Duration = duration;
 
-				//Populate packet
 				cmdPacket.SetCmd(DRIVE);
 				cmdPacket.SetBodyData((char *)&body, 2);
 				cmdPacket.SetPktCount(1);
 				cmdPacket.CalcCRC();
-
+		
 				//Generate the data and send it
 				char * buffer = cmdPacket.GenPacket();
-				command->SendData(buffer, sizeof(buffer));
+				command.SendData(buffer, 9);
 			}
 
 			//ARM
 			//72 = up arrow, 80 = down arrow
 			if (key == 72 || key == 80) {
 				char action;
+				std::cout << "Key is ARM: " << key << std::endl;
 
 				//Set direction based on arrow pressed
 				switch (key) {
@@ -135,13 +137,14 @@ void cmd() {
 
 				//Generate the data and send it
 				char * buffer = cmdPacket.GenPacket();
-				command->SendData(buffer, sizeof(buffer));
+				command.SendData(buffer, sizeof(buffer));
 			}
 
 			//CLAW
 			//75 = key left (open), 77 = key right (close)
 			if (key == 75 || key == 77) {
 				char action;
+				std::cout << "Key is CLAW: " << key << std::endl;
 
 				//Set direction based on arrow pressed
 				switch (key) {
@@ -158,34 +161,29 @@ void cmd() {
 				body.Action = action;
 
 				//Populate packet
-				cmdPacket.SetCmd(ARM);
+				cmdPacket.SetCmd(CLAW);
 				cmdPacket.SetBodyData((char *)&body, 1);
 				cmdPacket.SetPktCount(1);
 				cmdPacket.CalcCRC();
 
 				//Generate the data and send it
 				char * buffer = cmdPacket.GenPacket();
-				command->SendData(buffer, sizeof(buffer));
+				command.SendData(buffer, sizeof(buffer));
 			}
 			
 			//SLEEP
 			//107 - k
 			if (key == 107) {
 				// Set the command to sleep
+				std::cout << "Key is SLEEP: " << key << std::endl;
 				cmdPacket.SetCmd(CmdType::SLEEP);
-
-				MotorBody body;
-
-				body.Direction = 0;
-				body.Duration = 0;
-				cmdPacket.SetBodyData((char *)&body, 2);
 
 				// Calculate the CRC
 				cmdPacket.CalcCRC();
 
 				//Generate the data and send it
 				char * buffer = cmdPacket.GenPacket();
-				command->SendData(buffer, sizeof(buffer));
+				command.SendData(buffer, sizeof(buffer));
 
 				break;
 			}
@@ -209,6 +207,11 @@ void cmd() {
 			}
 		}
 	}
+	/*char rxbuffer[128];
+	int buffer = command->GetData();*/
+
+	command.DisconnectTCP();
+	ExeComplete = true;
 }
 
 //Logic for the telemetry thread
@@ -229,7 +232,7 @@ void tel() {
 
 			//If the CRC is OK
 			if (packet.CheckCRC((char *)rxBuffer, 12)) {
-				//If STATUS is true rxBuffer[5] & 1 >> 1
+				//If STATUS is true
 				if (packet.GetCmd() == STATUS) {
 					char * bodyData = packet.GetBodyData();
 

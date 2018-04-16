@@ -157,6 +157,9 @@ CmdType PktDef::GetCmd() {
 	else if (CmdPkt.header.Claw == 1) {
 		cmd = CLAW;
 	}
+	else {
+		cmd = ERROR;
+	}
 
 	return cmd;
 }

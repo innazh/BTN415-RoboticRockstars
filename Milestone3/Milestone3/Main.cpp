@@ -35,18 +35,18 @@ void cmd() {
 			//DRIVE
 			//119 = w, 115 = s, 97 = a, 100 = d
 			if (key == 119 || key == 115 || key == 97 || key == 100) {
-				int direction;
-				int duration;
+				int direction = 0;
+				int duration = 0;
 
 				//Get the duration
 				//Use the numbers on your keyboard, we can get 1 - 9 seconds
 				int durationGet = _getch();
 
 				//49 = 1, 57 = 9
-				while (durationGet < 49 || durationGet > 57) {
+				if (durationGet < 49 || durationGet > 57) {
 					fflush(stdin);
 					std::cout << "Error: Duration must be 1 - 9" << std::endl;
-					int duration = _getch();
+					int durationGet = _getch();
 				}
 
 				//Set the direction based on the key pressed

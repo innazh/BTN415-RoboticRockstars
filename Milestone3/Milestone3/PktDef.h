@@ -44,7 +44,8 @@ struct ActuatorBody {
 
 //Define the command types
 enum CmdType {
-	SLEEP = 1,
+	ERROR,
+	SLEEP,
 	STATUS,
 	DRIVE,
 	CLAW,

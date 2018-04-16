@@ -262,7 +262,7 @@ void cmd() {
 			}
 
 			//NACK
-			if (!recPacket->GetAck()) {
+			if (!recPacket->GetAck() && recPacket->GetCmd() != SLEEP) {
 				char * bodyData = recPacket->GetBodyData();
 				std::cout << "Error: " << (std::string)bodyData << std::endl;
 			}

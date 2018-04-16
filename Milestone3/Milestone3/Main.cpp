@@ -282,6 +282,7 @@ void tel() {
 				//If STATUS is true
 				if (packet.GetCmd() == STATUS) {
 						char * rawData = packet.GenPacket();
+						char * bodyData = packet.GetBodyData();
 
 						//display raw data
 						std::cout << "Data: ";
@@ -296,7 +297,7 @@ void tel() {
 
 						//Display arm reading
 						std::cout << "Arm Position: " << (short int)bodyData[2] << std::endl << std::endl;
-					}
+						}
 				}
 				else {
 					std::cout << "Error: STATUS not set to true" << std::endl;

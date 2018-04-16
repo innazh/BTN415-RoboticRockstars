@@ -83,6 +83,7 @@ public:
 	PktDef();
 	PktDef(char*);
 	void SetCmd(CmdType);
+	void SetBadCmd();
 	void SetBodyData(char*, int);
 	void SetPktCount(int);
 	CmdType GetCmd();
@@ -92,6 +93,7 @@ public:
 	int GetPktCount();
 	bool CheckCRC(char*, int);
 	void CalcCRC();
+	void setBadCRC();
 	char *GenPacket();
 };
 #endif

@@ -95,9 +95,6 @@ void cmd() {
 					break;
 				}
 
-				std::cout << "Key is DRIVE - DIRECTION: " << direction << std::endl;
-				std::cout << "Key is DRIVE - DURATION: " << duration << std::endl;
-
 				//Make the MotorBody
 				MotorBody body;
 				body.Direction = direction;
@@ -118,7 +115,6 @@ void cmd() {
 			//72 = up arrow, 80 = down arrow
 			if (key == 72 || key == 80) {
 				char action;
-				std::cout << "Key is ARM: " << key << std::endl;
 
 				//Set direction based on arrow pressed
 				switch (key) {
@@ -150,7 +146,6 @@ void cmd() {
 			//75 = key left (open), 77 = key right (close)
 			if (key == 75 || key == 77) {
 				char action;
-				std::cout << "Key is CLAW: " << key << std::endl;
 
 				//Set direction based on arrow pressed
 				switch (key) {
@@ -182,7 +177,6 @@ void cmd() {
 			//107 - k
 			if (key == 107) {
 				// Set the command to sleep
-				std::cout << "Key is SLEEP: " << key << std::endl;
 				cmdPacket.SetCmd(CmdType::SLEEP);
 
 				// Calculate the CRC
@@ -205,17 +199,7 @@ void cmd() {
 				cmdPacket.SetCmd(CLAW);
 				cmdPacket.SetBodyData((char *)&aBody, 1);
 				cmdPacket.SetPktCount(1);
-				cmdPacket.CalcCRC();
-
-				//Make a MotorBody to replace the ActuatorBody
-				//Don't CalcRC, leave it as-is
-				MotorBody mBody;
-				mBody.Direction = FORWARD;
-				mBody.Duration = 1;
-
-				cmdPacket.SetCmd(DRIVE);
-				cmdPacket.SetBodyData((char *)&mBody, 2);
-				cmdPacket.SetPktCount(1);
+				cmdPacket.setBadCRC();
 
 				//Generate the data and send it
 				char * buffer = cmdPacket.GenPacket();
@@ -226,13 +210,39 @@ void cmd() {
 			//Incorrect header length
 			// 98 - b
 			if (key == 98) {
+				MotorBody bLength;
+				bLength.Direction = BACKWARD;
+				bLength.Duration = 5;
 
+				//Populate packet
+				cmdPacket.SetCmd(DRIVE);
+				cmdPacket.SetBodyData((char *)&bLength, 1);
+				cmdPacket.SetPktCount(1);
+				cmdPacket.CalcCRC();
+
+				//Generate the data and send it
+				char * buffer = cmdPacket.GenPacket();
+				command.SendData(buffer, sizeof(buffer));
+				sent = true;
 			}
 
 			//Incorrect header command
 			//110 - n
 			if (key == 110) {
+				MotorBody bHead;
+				bHead.Direction = RIGHT;
+				bHead.Duration = 5;
 
+				//Populate packet
+				cmdPacket.SetBadCmd();
+				cmdPacket.SetBodyData((char *)&bHead, 2);
+				cmdPacket.SetPktCount(1);
+				cmdPacket.CalcCRC();
+
+				//Generate the data and send it
+				char * buffer = cmdPacket.GenPacket();
+				command.SendData(buffer, sizeof(buffer));
+				sent = true;
 			}
 		}
 		
@@ -241,7 +251,7 @@ void cmd() {
 			recv = command.GetData(rxBuffer);
 			recPacket = new PktDef(rxBuffer);
 
-			std::cout << "N/ACK packet received from server" << std::endl;
+			std::cout << "\nN/ACK packet received from server\n" << std::endl;
 
 			//SLEEP command was previously sent
 			if (key == 107) {
@@ -251,7 +261,7 @@ void cmd() {
 			}
 
 			//NACK
-			if (!recPacket->GetCmd()) {
+			if (!recPacket->GetAck()) {
 				char * bodyData = recPacket->GetBodyData();
 				std::cout << "Error: " << (std::string)bodyData << std::endl;
 			}
@@ -297,6 +307,30 @@ void tel() {
 
 						//Display arm reading
 						std::cout << "Arm Position: " << (short int)bodyData[2] << std::endl << std::endl;
+
+						//Display driving
+						if (bodyData[4] & 1) {
+							std::cout << "DRIVING" << std::endl;
+						}
+						else {
+							std::cout << "STOPPED" << std::endl;
+						}
+
+						//Display arm
+						if (bodyData[4] >> 1 & 1) {
+							std::cout << "ARM UP, ";
+						}
+						else {
+							std::cout << "ARM DOWN, ";
+						}
+
+						//Display claw
+						if (bodyData[4] >> 3 & 1) {
+							std::cout << "CLAW OPEN";
+						}
+						else {
+							std::cout << "CLAW CLOSED";
+						}
 
 				}
 				else {

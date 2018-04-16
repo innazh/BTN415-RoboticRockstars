@@ -110,6 +110,15 @@ void PktDef::SetCmd(CmdType flag) {
 	}
 }
 
+void PktDef::SetBadCmd() {
+		CmdPkt.header.Drive = 1;
+		CmdPkt.header.Arm = 1;
+		CmdPkt.header.Claw = 1;
+		CmdPkt.header.Sleep = 0;
+		CmdPkt.header.Status = 0;
+		CmdPkt.header.Ack = 0;
+}
+
 //Allocate packet's Body field to copy rawdata into buffer
 void PktDef::SetBodyData(char* rawdata, int len) {
 	if (CmdPkt.Data != nullptr) {
@@ -250,6 +259,13 @@ void PktDef::CalcCRC() {
 	}
 	//Set CRC value
 	CmdPkt.CRC = numOnes;
+}
+
+//Increases the CRC by one after calculating it
+//For testing purposes only!  Don't use it unless you want a bad CRC!
+void PktDef::setBadCRC() {
+	CalcCRC();
+	CmdPkt.CRC++;
 }
 
 //Allocate RawBuffer, transfer data from packet into RawBuffer

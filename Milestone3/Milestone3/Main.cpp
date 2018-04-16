@@ -281,9 +281,7 @@ void tel() {
 			if (packet.CheckCRC((char *)rxBuffer, 12)) {
 				//If STATUS is true
 				if (packet.GetCmd() == STATUS) {
-					if (packet.GetCmd() == STATUS) {
 						char * rawData = packet.GenPacket();
-						char * bodyData = packet.GetBodyData();
 
 						//display raw data
 						std::cout << "Data: ";

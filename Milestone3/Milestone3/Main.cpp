@@ -280,7 +280,7 @@ void tel() {
 	MySocket tel(client, ip, portTel, tcp, 128);
 	tel.ConnectTCP();
 
-	while (true) {
+	while (!ExeComplete) {
 		recv = tel.GetData(rxBuffer); //receive data
 
 		//Packet isn't corrupted
@@ -296,7 +296,7 @@ void tel() {
 						char * bodyData = packet.GetBodyData();
 
 						//display raw data
-						std::cout << "Data: ";
+						std::cout << "\nData: ";
 						for (int i = 0; i < packet.GetLength(); i++)
 						{
 							std::cout << std::hex << (unsigned int)*(rawData++) << ", ";
@@ -343,11 +343,12 @@ void tel() {
 			}
 		}
 		//Packet is corrupted
-
 		else {
 			std::cout << "Error: Corrupt packet received" << std::endl;
 		}
 	}
+
+	tel.DisconnectTCP();
 }
 
 //Main function

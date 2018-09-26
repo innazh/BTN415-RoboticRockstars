@@ -15,3 +15,9 @@ Client application is controlling the robot and receiving its telemetry sensor d
 <p>-Implementation of a protocol definition within a client environment</p>
 <p>-Design of a multi-threaded application</p>
 <p>-Encapsulation of an application protocol with TCP/IP reliable communications</p>
+
+<h2>Team members:</h2>
+<p>Inna Zhogova</p>
+<p>Rachael Scotchmer</p>
+<p>Paul Liakhov</p>
+<p>Mahnoor Siddiqui</p>

@@ -9,6 +9,6 @@ The idea behind first implementation. What is expected, what should be included,
 
 <h2>Key learnings</h2>
 <p>-Interpret an application layer protocol</p>
--Implement a protocol definition within a client environment
--Designed a multi-threaded application
--Encapsulate an application protocol with TCP/IP reliable communications
+<p>-Implement a protocol definition within a client environment</p>
+<p>-Designed a multi-threaded application</p>
+<p>-Encapsulate an application protocol with TCP/IP reliable communications</p>

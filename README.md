@@ -17,7 +17,7 @@ Client application is controlling the robot and receiving its telemetry sensor d
 <p>-Encapsulation of an application protocol with TCP/IP reliable communications</p>
 
 <h2>Team members:</h2>
-<p>Inna Zhogova</p>
-<p>Rachael Scotchmer</p>
-<p>Paul Liakhov</p>
-<p>Mahnoor Siddiqui</p>
+<p>1. Inna Zhogova</p>
+<p>2. Rachael Scotchmer</p>
+<p>3. Paul Liakhov</p>
+<p>4. Mahnoor Siddiqui</p>

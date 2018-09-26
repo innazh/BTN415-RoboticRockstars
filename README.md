@@ -11,10 +11,10 @@ Client application is controlling the robot and receiving its telemetry sensor d
 .
 
 <h2>Learning outcomes</h2>
-<p>-Interpretion of an application layer protocol</p>
-<p>-Implementation of a protocol definition within a client environment</p>
-<p>-Design of a multi-threaded application</p>
-<p>-Encapsulation of an application protocol with TCP/IP reliable communications</p>
+<p>- Interpretion of an application layer protocol</p>
+<p>- Implementation of a protocol definition within a client environment</p>
+<p>- Design of a multi-threaded application</p>
+<p>- Encapsulation of an application protocol with TCP/IP reliable communications</p>
 
 <h2>Team members:</h2>
 <p>1. Inna Zhogova</p>
